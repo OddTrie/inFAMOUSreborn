@@ -1072,9 +1072,8 @@ def add_to_steam(directory):
             subprocess.run([shutil.which('flatpak'), 'override', '--user', '--filesystem=%s' % directory,
                             'com.valvesoftware.Steam'], check=False)
         return 'Flatpak Steam cannot be asked to add games directly.\n\n' + manual
-    entry = state / 'steam' / (TITLE + '.desktop')
-    atomic_text(entry, '[Desktop Entry]\nType=Application\nName=%s\nExec=%s\nPath=%s\nTerminal=false\n'
-                       'Categories=Game;\n' % (TITLE, desktop_arg(exe), desktop_value(exe.parent)))
+    # Steam adds the file it is given as the shortcut's target (a .desktop file would itself become the
+    # target, which Proton cannot run), with the file's folder as its start folder.
     sentinel = Path('/tmp/addnonsteamgamefile')
     fd = os.open(str(sentinel), os.O_CREAT | os.O_WRONLY | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
     try:
@@ -1084,7 +1083,7 @@ def add_to_steam(directory):
     finally:
         os.close(fd)
     try:
-        subprocess.run(command + ['steam://addnonsteamgame/' + quote(str(entry), safe='')], check=True,
+        subprocess.run(command + ['steam://addnonsteamgame/' + quote(str(exe), safe='')], check=True,
                        timeout=30, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return 'Steam did not take the request.\n\n' + manual
