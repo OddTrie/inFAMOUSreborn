@@ -335,8 +335,8 @@ forbid = [
 # `infamous-installer update` and the setup's "Update now": where new versions come from. The repository
 # is the curated github/ working copy (publish-github.cmd pushes it). Only files whose content differs are downloaded.
 [update]
-repo = "whompay/inFAMOUSreborn"
-branch = "main"
+repo = "OddTrie/inFAMOUSreborn"
+branch = "linux"
 # Folder inside the repository that holds this tree ("" = the repository root).
 path = ""
 # Files older setups placed that the repository does not have: `update` deletes them wherever they

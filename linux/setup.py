@@ -32,7 +32,7 @@ from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
 TITLE = 'inFamous'
-DEFAULT_REPO = 'OWNER/inFAMOUSreborn-linux'   # set by package.sh --repo
+DEFAULT_REPO = 'OddTrie/inFAMOUSreborn'      # set by package.sh --repo
 DEFAULT_BRANCH = 'linux'                       # set by package.sh --branch
 LINK_NAME = 'Infamous (Europe) (Fr,De,Es,It,Nl)'   # [game] link_name in installer/infamous.toml
 STATE = '.linux'
