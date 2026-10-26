@@ -1,5 +1,9 @@
 # inFamous PC
 
+> **This is an unofficial Linux fork.** It adds a Linux setup (`inFamous-Linux-Setup.run`) that
+> builds the same Windows port on Linux and runs it with Proton; see [linux/README.md](linux/README.md).
+> Report Linux problems in this fork, not to the original project.
+
 > **Official repo: [github.com/whompay/inFAMOUSreborn](https://github.com/whompay/inFAMOUSreborn).**
 > Only download the Setup from the [Releases page](https://github.com/whompay/inFAMOUSreborn/releases) here.
 > Forks are not supported, and bugs from forks won't be fixed.
