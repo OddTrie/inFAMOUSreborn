@@ -314,6 +314,54 @@ def validate_destination(path, update=False, free_gb=FIRST_INSTALL_GB):
     return path.resolve()
 
 
+class KeepAwake:
+    """Keeps the PC from sleeping while setup works: the first install takes an hour or more, and a PC
+    (a Steam Deck in particular) that suspends meanwhile stops it. A logind inhibitor (systemd-inhibit,
+    or elogind-inhibit) is held by a small process that ends by itself when setup does, even if setup
+    is killed, so the PC is never left unable to sleep."""
+
+    def __init__(self, say, who):
+        self.say = say
+        self.who = who
+        self.proc = None
+
+    def start(self):
+        tool = shutil.which('systemd-inhibit') or shutil.which('elogind-inhibit')
+        if not tool:
+            self.say('Note: this system cannot be kept awake automatically; keep it from sleeping until setup finishes.')
+            return self
+        watch = ('import os, sys, time\n'
+                 'while True:\n'
+                 '    try:\n'
+                 '        os.kill(%d, 0)\n'
+                 '    except OSError:\n'
+                 '        sys.exit(0)\n'
+                 '    time.sleep(5)\n' % os.getpid())
+        try:
+            self.proc = subprocess.Popen([tool, '--what=sleep:idle', '--mode=block', '--who=' + self.who,
+                                          '--why=Building the game', sys.executable, '-c', watch],
+                                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                         stderr=subprocess.DEVNULL)
+            time.sleep(0.5)
+        except OSError:
+            self.proc = None
+        if self.proc is None or self.proc.poll() is not None:
+            self.proc = None
+            self.say('Note: the PC could not be kept awake automatically; keep it from sleeping until setup finishes.')
+        else:
+            self.say('Keeping the PC awake until setup finishes.')
+        return self
+
+    def stop(self):
+        if self.proc and self.proc.poll() is None:
+            self.proc.terminate()
+            try:
+                self.proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+        self.proc = None
+
+
 def tree_pids(pid):
     out = []
     try:
@@ -779,6 +827,14 @@ class Engine:
             shutil.copy2(str(launcher), str(self.destination / (TITLE + '.exe')))
         else:
             self.say('Note: installer/bin/infamous-launch.exe is missing; the game starts without the options window.')
+        # inFamous.exe passes launch.txt's env= lines to the game, so Wine uses Microsoft's d3dcompiler_47.dll
+        # however it is started (no Steam launch options). The installer writes this line itself; an update
+        # run by an older installer binary did not, so make sure.
+        launch_txt = self.destination / 'installer/launch.txt'
+        if launch_txt.is_file():
+            text = launch_txt.read_text()
+            if 'env=WINEDLLOVERRIDES=' not in text:
+                atomic_text(launch_txt, text.rstrip('\n') + '\nenv=WINEDLLOVERRIDES=d3dcompiler_47=n,b\n')
         self.integrate()
 
     def execute(self):
@@ -795,10 +851,12 @@ class Engine:
                 raise SetupError('Another setup is already working on this folder.') from exc
             with open(str(self.state / 'setup.log'), 'a', buffering=1, encoding='utf-8') as log:
                 self.log = log
+                awake = KeepAwake(self.say, TITLE + ' Setup')
                 try:
                     self.say('\n%s Linux setup  %s' % (TITLE, time.strftime('%Y-%m-%d %H:%M:%S')))
                     self.say('Install folder: %s' % self.destination)
                     self.say('System: %s, %s' % (os_release().get('PRETTY_NAME', 'Linux'), platform.release()))
+                    awake.start()
                     self.prepare_environment()
                     self.get_port()
                     self.build_installer()
@@ -829,6 +887,7 @@ class Engine:
                     self.say(str(exc))
                     raise
                 finally:
+                    awake.stop()
                     self.log = None
 
     # ---- running the game ----
@@ -1005,10 +1064,9 @@ def add_to_steam(directory):
     directory, state = installed_state(directory)
     exe = game_exe(directory)
     command, is_flatpak = steam_command()
-    options = 'WINEDLLOVERRIDES="d3dcompiler_47=n,b" %command%'
     manual = ('In Steam: Games > Add a Non-Steam Game to My Library > Browse > %s\n'
               'Then Properties > Compatibility: tick "Force the use of a specific Steam Play compatibility tool" '
-              '(Proton 9 or newer, or GE-Proton), and Properties > Launch Options:\n    %s' % (exe, options))
+              'and choose Proton 9 or newer (or GE-Proton).' % exe)
     if is_flatpak:
         if not str(directory).startswith(str(Path.home()) + '/'):
             subprocess.run([shutil.which('flatpak'), 'override', '--user', '--filesystem=%s' % directory,
@@ -1030,8 +1088,9 @@ def add_to_steam(directory):
                        timeout=30, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return 'Steam did not take the request.\n\n' + manual
-    return ('Sent to Steam: find %s in your library.\n\nThen set, in its Properties:\n'
-            '  Compatibility: Proton 9 or newer (or GE-Proton)\n  Launch Options: %s' % (TITLE, options))
+    return ('Sent to Steam: find %s in your library.\n\nThen, in its Properties > Compatibility, tick "Force the '
+            'use of a specific Steam Play compatibility tool" and choose Proton 9 or newer (or GE-Proton). '
+            'No launch options are needed.' % TITLE)
 
 
 def doctor(directory=None):
