@@ -795,6 +795,12 @@ fn write_launch_file(
     for (k, v) in &s.m.launch_env {
         t.push_str(&format!("env={k}={}\n", vars.expand(v)?));
     }
+    if s.cross().is_some() {
+        // Under Proton/Wine the game uses Microsoft's d3dcompiler_47.dll next to it (linux/setup.py
+        // puts it there), not Wine's own. Set here, it applies however inFamous.exe was started
+        // (Steam, umu), so a Steam shortcut needs no launch options.
+        t.push_str("env=WINEDLLOVERRIDES=d3dcompiler_47=n,b\n");
+    }
     util::write_file(&s.installer_dir.join("launch.txt"), t.as_bytes())
 }
 

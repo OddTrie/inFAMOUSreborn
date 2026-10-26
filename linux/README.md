@@ -84,10 +84,9 @@ sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0   # until the next
 
 ### Steam (any distribution)
 
-**Add to Steam** in the setup window adds the game as a non-Steam game. Then, in its Properties:
-
-* **Compatibility:** Proton 9 or newer, or GE-Proton.
-* **Launch Options:** `WINEDLLOVERRIDES="d3dcompiler_47=n,b" %command%`
+**Add to Steam** in the setup window adds the game as a non-Steam game. Then, in its Properties >
+Compatibility, choose Proton 9 or newer (or GE-Proton). No launch options are needed: the
+launcher sets the shader-compiler override for the game itself.
 
 Flatpak Steam can't be asked to add a game, so the setup shows the steps instead. If your install
 folder is outside your home folder, it also gives Flatpak Steam access to that folder.
